@@ -112,5 +112,113 @@ resolve({
 
 Fonksiyon, oluşturulan vertex ve index verilerini resolve ile döndürür.
 
+## Shader Programları
+```
+    const vertexShaderText = `
+    attribute vec3 vertPosition;
+    uniform mat4 mWorld;
+    uniform mat4 mView;
+    uniform mat4 mProj;
+    void main() {
+        gl_Position = mProj * mView * mWorld * vec4(vertPosition, 1.0);
+    }
+    `;
+
+    const fragmentShaderText = `
+    precision highp float;
+    void main() {
+        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+    `;
+
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+
+    gl.shaderSource(vertexShader, vertexShaderText);
+    gl.shaderSource(fragmentShader, fragmentShaderText);
+
+    gl.compileShader(vertexShader);
+    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+        console.error('ERROR compiling vertex shader!', gl.getShaderInfoLog(vertexShader));
+        return;
+    }
+
+    gl.compileShader(fragmentShader);
+    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+        console.error('ERROR compiling fragment shader!', gl.getShaderInfoLog(fragmentShader));
+        return;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('ERROR linking program!', gl.getProgramInfoLog(program));
+        return;
+    }
+
+    gl.validateProgram(program);
+    if (!gl.getProgramParameter(program, gl.VALIDATE_STATUS)) {
+        console.error('ERROR validating program!', gl.getProgramInfoLog(program));
+        return;
+    }
+```
+Shaderlar oluşturulur, kaynak kodları yüklenir, derlenir ve bir programa bağlanır.
+
+## Buffer’ların Oluşturulması ve Shader Programına Bağlanması
+```
+    let textData = await createFrontSideText(gl, "ERKAM", 'Uni Sans Heavy.otf', 20);
+
+    let vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, textData.vertices, gl.STATIC_DRAW);
+
+    let indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, textData.indices, gl.STATIC_DRAW);
+
+    const positionAttribLocation = gl.getAttribLocation(program, 'vertPosition');
+    gl.vertexAttribPointer(
+        positionAttribLocation, 
+        3, 
+        gl.FLOAT, 
+        gl.FALSE,
+        3 * Float32Array.BYTES_PER_ELEMENT, 
+        0
+    );
+    gl.enableVertexAttribArray(positionAttribLocation);
+
+    gl.useProgram(program);
+```
+* createFrontSideText: Metin verilerini oluşturur.
+* vertexBuffer ve indexBuffer: Vertex ve index verileri için buffer’lar oluşturulur ve veri yüklenir.
+* Vertex attributeleri bağlanır ve shader programı kullanıma hazır hale getirilir.
+
+## Matris Dönüşümleri ve Shader Uniformları
+```
+    const worldMatrix = mat4.create();
+    const viewMatrix = mat4.create();
+    const projMatrix = mat4.create();
+    mat4.lookAt(viewMatrix, [0, 2, -10], [0, 0, 0], [0, 1, 0]); // Kamerayı konumlandır
+    mat4.perspective(projMatrix, glMatrix.toRadian(60), canvas.width / canvas.height, 0.1, 1000.0); // Perspektif projeksiyon
+
+    const matWorldUniformLocation = gl.getUniformLocation(program, 'mWorld');
+    const matViewUniformLocation = gl.getUniformLocation(program, 'mView');
+    const matProjUniformLocation = gl.getUniformLocation(program, 'mProj');
+    
+    gl.uniformMatrix4fv(matWorldUniformLocation, gl.FALSE, worldMatrix);
+    gl.uniformMatrix4fv(matViewUniformLocation, gl.FALSE, viewMatrix);
+    gl.uniformMatrix4fv(matProjUniformLocation, gl.FALSE, projMatrix);
+```
+* Dünya Matrisi (World Matrix): Bu matris, nesnenin dünya koordinatları içerisindeki konumunu, dönüşünü ve ölçeğini tanımlar.
+* Görüntü Matrisi (View Matrix): Bu matris, kamera konumunu ve yönelimini tanımlar. mat4.lookAt fonksiyonu kullanılarak kamera konumu belirlenir.
+* Projeksiyon Matrisi (Projection Matrix): Bu matris, 3D koordinatların 2D ekran koordinatlarına dönüştürülmesini sağlar. mat4.perspective fonksiyonu ile perspektif projeksiyon matrisi oluşturulur.
+* Uniform Matrisler: Shader programında kullanılan matrisler, gl.uniformMatrix4fv fonksiyonları ile GPU’ya aktarılır.
+
+## WebGL Ayarları
+
+
 
 
