@@ -37,7 +37,7 @@ const addVertex = (x, y) => {
 ```
 * addVertex: Verilen (x, y) koordinatlarını vertex listesine ekler. Koordinatları ölçeklendirilmiş olarak (/ 1000) ekler ve z-koordinatı olarak 0.0 kullanılır.
 * Minimum ve maksimum x ve y değerlerini günceller.
-* index değerini artırır ve yeni vertex’in indeksini döner.
+* index değerini artırır ve yeni vertex’in indeksini döndürür.
 
 #### Yazı Tipi Yolunu İşleyen Fonksiyon
 ```
