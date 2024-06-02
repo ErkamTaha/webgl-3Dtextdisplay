@@ -24,13 +24,15 @@ async function main() {
                     reject('Font could not be loaded: ' + err);
                 } else {
                     const vertices = [];
+                    const colors = [];
                     const indices = [];
                     let index = 0;
                     let xOffset = 0;
                     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-                    const addVertex = (x, y) => {
-                        vertices.push(x / 100, -y / 100, 0.0);
+                    const addVertex = (x, y, color) => {
+                        vertices.push(x / 1000, -y / 1000, 0.0);
+                        colors.push(color[0], color[1], color[2], 1.0);
                         minX = Math.min(minX, x);
                         maxX = Math.max(maxX, x);
                         minY = Math.min(minY, y);
@@ -38,28 +40,28 @@ async function main() {
                         return index++;
                     };
 
-                    const processPath = (path) => {
+                    const processPath = (path, color) => {
                         let startPoint = null;
                         let lastIndex = null;
                         path.commands.forEach(cmd => {
                             if (cmd.type === 'M') {
-                                startPoint = addVertex(cmd.x + xOffset, cmd.y);
+                                startPoint = addVertex(cmd.x + xOffset, cmd.y, color);
                                 lastIndex = startPoint;
                             } else if (cmd.type === 'L') {
-                                const currentIndex = addVertex(cmd.x + xOffset, cmd.y);
+                                const currentIndex = addVertex(cmd.x + xOffset, cmd.y, color);
                                 indices.push(lastIndex, currentIndex);
                                 lastIndex = currentIndex;
                             } else if (cmd.type === 'C') {
-                                const controlIndex1 = addVertex(cmd.x1 + xOffset, cmd.y1);
-                                const controlIndex2 = addVertex(cmd.x2 + xOffset, cmd.y2);
-                                const currentIndex = addVertex(cmd.x + xOffset, cmd.y);
+                                const controlIndex1 = addVertex(cmd.x1 + xOffset, cmd.y1, color);
+                                const controlIndex2 = addVertex(cmd.x2 + xOffset, cmd.y2, color);
+                                const currentIndex = addVertex(cmd.x + xOffset, cmd.y, color);
                                 indices.push(lastIndex, controlIndex1);
                                 indices.push(controlIndex1, controlIndex2);
                                 indices.push(controlIndex2, currentIndex);
                                 lastIndex = currentIndex;
                             } else if (cmd.type === 'Q') {
-                                const controlIndex = addVertex(cmd.x1 + xOffset, cmd.y1);
-                                const currentIndex = addVertex(cmd.x + xOffset, cmd.y);
+                                const controlIndex = addVertex(cmd.x1 + xOffset, cmd.y1, color);
+                                const currentIndex = addVertex(cmd.x + xOffset, cmd.y, color);
                                 indices.push(lastIndex, controlIndex);
                                 indices.push(controlIndex, currentIndex);
                                 lastIndex = currentIndex;
@@ -73,10 +75,20 @@ async function main() {
                         xOffset += path.getBoundingBox().x2 - path.getBoundingBox().x1 + letterSpacing;
                     };
 
+                    const colorsArray = [
+                        [1.0, 0.0, 0.0], // Red
+                        [0.0, 1.0, 0.0], // Green
+                        [0.0, 0.0, 1.0], // Blue
+                        [1.0, 1.0, 0.0], // Yellow
+                        [1.0, 0.0, 1.0], // Magenta
+                        [0.0, 1.0, 1.0]  // Cyan
+                    ];
+
                     const textArray = text.split('');
-                    textArray.forEach(char => {
-                        const path = font.getPath(char, 0, 0, 40);
-                        processPath(path);
+                    textArray.forEach((char, i) => {
+                        const path = font.getPath(char, 0, 0, 200); // Use a larger font size for higher resolution
+                        const color = colorsArray[i % colorsArray.length];
+                        processPath(path, color);
                     });
 
                     const centerX = (minX + maxX) / 2;
@@ -84,11 +96,12 @@ async function main() {
 
                     const centeredVertices = [];
                     for (let i = 0; i < vertices.length; i += 3) {
-                        centeredVertices.push(vertices[i] - centerX / 100, vertices[i + 1] + centerY / 100, vertices[i + 2]);
+                        centeredVertices.push(vertices[i] - centerX / 1000, vertices[i + 1] + centerY / 1000, vertices[i + 2]);
                     }
 
                     resolve({
                         vertices: new Float32Array(centeredVertices),
+                        colors: new Float32Array(colors),
                         indices: new Uint16Array(indices)
                     });
                 }
@@ -98,18 +111,22 @@ async function main() {
 
     const vertexShaderText = `
     attribute vec3 vertPosition;
+    attribute vec4 vertColor;
+    varying vec4 fragColor;
     uniform mat4 mWorld;
     uniform mat4 mView;
     uniform mat4 mProj;
     void main() {
+        fragColor = vertColor;
         gl_Position = mProj * mView * mWorld * vec4(vertPosition, 1.0);
     }
     `;
 
     const fragmentShaderText = `
     precision highp float;
+    varying vec4 fragColor;
     void main() {
-        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        gl_FragColor = fragColor;
     }
     `;
 
@@ -147,17 +164,24 @@ async function main() {
         return;
     }
 
-    let textData = await createFrontSideText(gl, "ERKAM", 'Uni Sans Heavy.otf', 20);
+    let textData = await createFrontSideText(gl, "ERKAM", 'Uni Sans Heavy.otf', 70);
 
     let vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, textData.vertices, gl.STATIC_DRAW);
+
+    let colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, textData.colors, gl.STATIC_DRAW);
 
     let indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, textData.indices, gl.STATIC_DRAW);
 
     const positionAttribLocation = gl.getAttribLocation(program, 'vertPosition');
+    const colorAttribLocation = gl.getAttribLocation(program, 'vertColor');
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.vertexAttribPointer(
         positionAttribLocation, 
         3, 
@@ -168,13 +192,24 @@ async function main() {
     );
     gl.enableVertexAttribArray(positionAttribLocation);
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.vertexAttribPointer(
+        colorAttribLocation, 
+        4, 
+        gl.FLOAT, 
+        gl.FALSE,
+        4 * Float32Array.BYTES_PER_ELEMENT, 
+        0
+    );
+    gl.enableVertexAttribArray(colorAttribLocation);
+
     gl.useProgram(program);
 
     const worldMatrix = mat4.create();
     const viewMatrix = mat4.create();
     const projMatrix = mat4.create();
-    mat4.lookAt(viewMatrix, [0, 2, -8], [0, 0, 0], [0, 1, 0]); // Adjust camera position
-    mat4.perspective(projMatrix, glMatrix.toRadian(35), canvas.width / canvas.height, 0.1, 1000.0); // Increase FOV
+    mat4.lookAt(viewMatrix, [0, 2, -5], [0, 0, 0], [0, 1, 0]); // Adjust camera position
+    mat4.perspective(projMatrix, glMatrix.toRadian(30), canvas.width / canvas.height, 0.1, 1000.0); // Increase FOV
 
     const matWorldUniformLocation = gl.getUniformLocation(program, 'mWorld');
     const matViewUniformLocation = gl.getUniformLocation(program, 'mView');
@@ -197,10 +232,13 @@ async function main() {
 
     window.updateText = async function() {
         const textInput = document.getElementById('textInput').value || 'ERKAM';
-        textData = await createFrontSideText(gl, textInput, 'Uni Sans Heavy.otf', 20);
+        textData = await createFrontSideText(gl, textInput, 'Uni Sans Heavy.otf', 70);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, textData.vertices, gl.STATIC_DRAW);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, textData.colors, gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, textData.indices, gl.STATIC_DRAW);
