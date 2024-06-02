@@ -12,6 +12,7 @@ async function createFrontSideText(gl, text, fontUrl, letterSpacing) {
                 reject('Font could not be loaded: ' + err);
             } else {
                 const vertices = [];
+                const colors = [];
                 const indices = [];
                 let index = 0;
                 let xOffset = 0;
@@ -26,8 +27,9 @@ Fonksiyon, yazı tipi dosyasını yüklemek için opentype.load fonksiyonunu kul
 
 #### Vertex Ekleyen Yardımcı Fonksiyon
 ```
-const addVertex = (x, y) => {
+const addVertex = (x, y, color) => {
     vertices.push(x / 1000, -y / 1000, 0.0);
+    colors.push(color[0], color[1], color[2], 1.0);
     minX = Math.min(minX, x);
     maxX = Math.max(maxX, x);
     minY = Math.min(minY, y);
@@ -37,32 +39,46 @@ const addVertex = (x, y) => {
 ```
 * addVertex: Verilen (x, y) koordinatlarını vertex listesine ekler. Koordinatları ölçeklendirilmiş olarak (/ 1000) ekler ve z-koordinatı olarak 0.0 kullanılır.
 * Minimum ve maksimum x ve y değerlerini günceller.
+* Her vertex ile birlikte renk bilgisi saklanır.
 * index değerini artırır ve yeni vertex’in indeksini döndürür.
+
+#### colorsArray Dizisi
+```
+const colorsArray = [
+    [1.0, 0.0, 0.0], // Red
+    [0.0, 1.0, 0.0], // Green
+    [0.0, 0.0, 1.0], // Blue
+    [1.0, 1.0, 0.0], // Yellow
+    [1.0, 0.0, 1.0], // Magenta
+    [0.0, 1.0, 1.0]  // Cyan
+];
+```
+* colorsArray dizisi, her harfe atanacak renkleri içerir.
 
 #### Yazı Tipi Yolunu İşleyen Fonksiyon
 ```
-const processPath = (path) => {
+const processPath = (path, color) => {
     let startPoint = null;
     let lastIndex = null;
     path.commands.forEach(cmd => {
         if (cmd.type === 'M') {
-            startPoint = addVertex(cmd.x + xOffset, cmd.y);
+            startPoint = addVertex(cmd.x + xOffset, cmd.y, color);
             lastIndex = startPoint;
         } else if (cmd.type === 'L') {
-            const currentIndex = addVertex(cmd.x + xOffset, cmd.y);
+            const currentIndex = addVertex(cmd.x + xOffset, cmd.y, color);
             indices.push(lastIndex, currentIndex);
             lastIndex = currentIndex;
         } else if (cmd.type === 'C') {
-            const controlIndex1 = addVertex(cmd.x1 + xOffset, cmd.y1);
-            const controlIndex2 = addVertex(cmd.x2 + xOffset, cmd.y2);
-            const currentIndex = addVertex(cmd.x + xOffset, cmd.y);
+            const controlIndex1 = addVertex(cmd.x1 + xOffset, cmd.y1, color);
+            const controlIndex2 = addVertex(cmd.x2 + xOffset, cmd.y2, color);
+            const currentIndex = addVertex(cmd.x + xOffset, cmd.y, color);
             indices.push(lastIndex, controlIndex1);
             indices.push(controlIndex1, controlIndex2);
             indices.push(controlIndex2, currentIndex);
             lastIndex = currentIndex;
         } else if (cmd.type === 'Q') {
-            const controlIndex = addVertex(cmd.x1 + xOffset, cmd.y1);
-            const currentIndex = addVertex(cmd.x + xOffset, cmd.y);
+            const controlIndex = addVertex(cmd.x1 + xOffset, cmd.y1, color);
+            const currentIndex = addVertex(cmd.x + xOffset, cmd.y, color);
             indices.push(lastIndex, controlIndex);
             indices.push(controlIndex, currentIndex);
             lastIndex = currentIndex;
@@ -77,6 +93,7 @@ const processPath = (path) => {
 };
 ```
 * processPath: Yazı tipi yolunu işler ve vertex/index verilerini oluşturur.
+* Her harfe bir renk atayarak vertex renklerini oluşturur.
 * M (Move to): Bir başlangıç noktası belirler.
 * L (Line to): Düz bir çizgi çizer ve yeni vertex oluşturur.
 * C (Curve to): Bezier eğrisi çizer ve kontrol noktaları ile yeni vertex oluşturur.
@@ -87,9 +104,10 @@ const processPath = (path) => {
 #### Metni İşleme ve Ortalamayı Hesaplama
 ```
 const textArray = text.split('');
-textArray.forEach(char => {
-    const path = font.getPath(char, 0, 0, 200); // Yazı tipi yolu
-    processPath(path);
+textArray.forEach((char, i) => {
+    const path = font.getPath(char, 0, 0, 200); // Use a larger font size for higher resolution
+    const color = colorsArray[i % colorsArray.length];
+    processPath(path, color);
 });
 
 const centerX = (minX + maxX) / 2;
@@ -102,11 +120,11 @@ for (let i = 0; i < vertices.length; i += 3) {
 
 resolve({
     vertices: new Float32Array(centeredVertices),
+    colors: new Float32Array(colors),
     indices: new Uint16Array(indices)
 });
 ```
-* textArray: Metni karakterlere böler.
-* path: Her bir karakter için yazı tipi yolunu oluşturur ve processPath fonksiyonu ile işler.
+* textArray: Metni karakterlere böler ve processPath fonksiyonu ile işler.
 * centerX ve centerY: Metni ortalamak için hesaplanır.
 * centeredVertices: Vertex verilerini merkezler ve yeni vertex listesi oluşturur.
 
@@ -116,18 +134,22 @@ Fonksiyon, oluşturulan vertex ve index verilerini resolve ile döndürür.
 ```
     const vertexShaderText = `
     attribute vec3 vertPosition;
+    attribute vec4 vertColor;
+    varying vec4 fragColor;
     uniform mat4 mWorld;
     uniform mat4 mView;
     uniform mat4 mProj;
     void main() {
+        fragColor = vertColor;
         gl_Position = mProj * mView * mWorld * vec4(vertPosition, 1.0);
     }
     `;
 
     const fragmentShaderText = `
     precision highp float;
+    varying vec4 fragColor;
     void main() {
-        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        gl_FragColor = fragColor;
     }
     `;
 
