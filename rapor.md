@@ -84,8 +84,33 @@ const processPath = (path) => {
 * Z (Close path): Yolu kapatır ve başlangıç noktasına geri döner.
 * xOffset: Harfler arasındaki boşluğu ayarlamak için kullanılır.
 
+#### Metni İşleme ve Ortalamayı Hesaplama
+```
+const textArray = text.split('');
+textArray.forEach(char => {
+    const path = font.getPath(char, 0, 0, 200); // Yazı tipi yolu
+    processPath(path);
+});
 
+const centerX = (minX + maxX) / 2;
+const centerY = (minY + maxY) / 2;
 
+const centeredVertices = [];
+for (let i = 0; i < vertices.length; i += 3) {
+    centeredVertices.push(vertices[i] - centerX / 1000, vertices[i + 1] + centerY / 1000, vertices[i + 2]);
+}
+
+resolve({
+    vertices: new Float32Array(centeredVertices),
+    indices: new Uint16Array(indices)
+});
+```
+* textArray: Metni karakterlere böler.
+* path: Her bir karakter için yazı tipi yolunu oluşturur ve processPath fonksiyonu ile işler.
+* centerX ve centerY: Metni ortalamak için hesaplanır.
+* centeredVertices: Vertex verilerini merkezler ve yeni vertex listesi oluşturur.
+
+Fonksiyon, oluşturulan vertex ve index verilerini resolve ile döndürür.
 
 
 
