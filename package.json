@@ -1,0 +1,27 @@
+{
+  "name": "webgl-project",
+  "version": "1.0.0",
+  "description": "A WebGL project for school.",
+  "main": "src/main.js",
+  "scripts": {
+    "build": "webpack",
+    "start": "webpack serve --open"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/three": "^0.165.0",
+    "earcut": "^2.2.4",
+    "gl-matrix": "^3.4.3",
+    "opentype.js": "^1.3.4",
+    "three": "^0.165.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.14.6",
+    "@babel/preset-env": "^7.14.7",
+    "babel-loader": "^8.2.2",
+    "webpack": "^5.38.1",
+    "webpack-cli": "^4.7.2",
+    "webpack-dev-server": "^4.2.1"
+  }
+}
