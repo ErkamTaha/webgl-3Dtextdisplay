@@ -218,7 +218,65 @@ Shaderlar oluşturulur, kaynak kodları yüklenir, derlenir ve bir programa bağ
 * Uniform Matrisler: Shader programında kullanılan matrisler, gl.uniformMatrix4fv fonksiyonları ile GPU’ya aktarılır.
 
 ## WebGL Ayarları
+```
+gl.clearColor(0.0, 0.0, 0.0, 1.0);
+gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+gl.enable(gl.DEPTH_TEST);
+gl.enable(gl.CULL_FACE);
+gl.frontFace(gl.CCW);
+gl.cullFace(gl.BACK);
+
+const identityMatrix = mat4.create();
+let angle = 0;
+```
+* Arka Plan Rengi: gl.clearColor fonksiyonu ile arka plan rengi siyah olarak ayarlanır.
+* Tamponları Temizleme: gl.clear fonksiyonu ile renk ve derinlik tamponları temizlenir.
+* Derinlik Testi: gl.enable(gl.DEPTH_TEST) ile derinlik testi etkinleştirilir, bu sayede yakın olan nesneler uzak olanların önünde görünür.
+* Yüzey Kırpma: gl.enable(gl.CULL_FACE) ile arka yüzeylerin kırpılması etkinleştirilir.
+* Ön Yüz Tanımlama: gl.frontFace(gl.CCW) ile saat yönünün tersine olan yüzeyler ön yüz olarak kabul edilir.
+* Arka Yüz Kırpma: gl.cullFace(gl.BACK) ile arka yüzeyler kırpılır.
+
+## Metin Güncelleme Fonksiyonu
+```
+window.updateText = async function() {
+    const textInput = document.getElementById('textInput').value || 'ERKAM';
+    textData = await createFrontSideText(gl, textInput, 'Uni Sans Heavy.otf', 20);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, textData.vertices, gl.STATIC_DRAW);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, textData.indices, gl.STATIC_DRAW);
+};
+```
+* updateText Fonksiyonu: Kullanıcı metni değiştirdiğinde çağrılır ve yeni metin verileri oluşturulur.
+* Buffer Güncelleme: Yeni metin verileri oluşturulduktan sonra vertex ve index buffer’ları güncellenir.
+
+## Döngü ve Rotasyon
+```
+const loop = () => {
+    // Sürekli döndürme
+    angle = performance.now() / 1000 / 6 * 2 * Math.PI; // Saniyede 60 derece döner
+    mat4.identity(worldMatrix);
+    mat4.translate(worldMatrix, worldMatrix, [0, 0, 0]); // Metni merkeze yerleştir
+    mat4.rotate(worldMatrix, worldMatrix, angle, [0, 1, 0]);
+
+    gl.uniformMatrix4fv(matWorldUniformLocation, gl.FALSE, worldMatrix);
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.drawElements(gl.LINES, textData.indices.length, gl.UNSIGNED_SHORT, 0);
+
+    requestAnimationFrame(loop);
+};
+requestAnimationFrame(loop);
+```
+* loop Fonksiyonu: Sonsuz bir döngü oluşturur ve her karede metni döndürür.
+* Açı Hesaplama: performance.now() kullanılarak geçen zaman baz alınır ve açı hesaplanır.
+* Dünya Matrisinin Döndürülmesi: mat4.rotate fonksiyonu ile dünya matrisi belirli bir açıyla döndürülür.
+* Uniform Matrisin Güncellenmesi: gl.uniformMatrix4fv ile dünya matrisi GPU’ya aktarılır.
+* Ekranı Temizleme ve Çizim: gl.clear ve gl.drawElements fonksiyonları kullanılarak ekran temizlenir ve metin çizilir.
+* Animasyon Döngüsü: requestAnimationFrame(loop) ile animasyon döngüsü devam ettirilir.
 
 
 
