@@ -7,3 +7,6 @@ npm install
 npm run build
 npm start
 ```
+# Kaynaklar
+* https://github.com/codetiger/Font23D
+* https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Getting_started_with_WebGL
