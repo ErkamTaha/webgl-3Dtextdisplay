@@ -278,5 +278,9 @@ requestAnimationFrame(loop);
 * Ekranı Temizleme ve Çizim: gl.clear ve gl.drawElements fonksiyonları kullanılarak ekran temizlenir ve metin çizilir.
 * Animasyon Döngüsü: requestAnimationFrame(loop) ile animasyon döngüsü devam ettirilir.
 
+## Kaynaklar
+
+* https://github.com/codetiger/Font23D
+* https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Getting_started_with_WebGL
 
 
